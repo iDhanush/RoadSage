@@ -3,3 +3,5 @@ uvicorn
 pymongo
 pymongo[srv]
 python-dotenv
+pydantic
+motor

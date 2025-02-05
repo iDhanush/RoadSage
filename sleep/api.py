@@ -4,20 +4,14 @@ import cv2
 import numpy as np
 import torch
 from PIL import Image
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from transformers import AutoImageProcessor, AutoModelForImageClassification
 
-from report.api import report_router
-from server import app
+app = FastAPI()
 
 # Load the model and processor
 processor = AutoImageProcessor.from_pretrained("MichalMlodawski/open-closed-eye-classification-mobilev2")
 model = AutoModelForImageClassification.from_pretrained("MichalMlodawski/open-closed-eye-classification-mobilev2")
-
-
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
 
 
 @app.websocket("/ws")
@@ -55,6 +49,3 @@ async def websocket_endpoint(websocket: WebSocket):
 
     except WebSocketDisconnect:
         print("Client disconnected")
-
-
-app.include_router(report_router)

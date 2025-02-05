@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Driver Drowsiness Detection</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        #webcam {
+            max-width: 640px;
+            margin: 20px 0;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+        }
+        #result {
+            font-size: 18px;
+            padding: 10px;
+            margin: 10px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+        }
+        .alert {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #ff4444;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Real-Time Driver Drowsiness Detection</h1>
+    <video id="webcam" autoplay playsinline></video>
+    <p id="result">Initializing...</p>
+    <div id="alert" class="alert">Drowsiness Detected!</div>
+
+    <script>
+        const ws = new WebSocket("ws://localhost:8000/ws");
+        const video = document.getElementById("webcam");
+        const result = document.getElementById("result");
+        const alertBox = document.getElementById("alert");
+        let lastCaptureTime = 0;
+        const CAPTURE_INTERVAL = 100; // 100ms interval between captures
+        let consecutiveZeroCount = 0;
+
+        ws.onopen = () => {
+            result.textContent = "Connected to server";
+        };
+
+        ws.onclose = () => {
+            result.textContent = "Disconnected from server";
+        };
+
+        ws.onerror = (error) => {
+            console.error("WebSocket error:", error);
+            result.textContent = "Connection error";
+        };
+
+        ws.onmessage = function(event) {
+            const message = event.data;
+            result.textContent = message;
+
+            // Check if the predicted class is 0
+            if (message.includes("Predicted class: 0")) {
+                consecutiveZeroCount++;
+                if (consecutiveZeroCount >= 10) {
+                    alertBox.style.display = "block";
+                }
+            } else {
+                consecutiveZeroCount = 0;
+                alertBox.style.display = "none";
+            }
+        };
+
+        async function initializeWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: "user"
+                    }
+                });
+                video.srcObject = stream;
+                await video.play();
+                captureFrame();
+            } catch (err) {
+                console.error("Error accessing webcam:", err);
+                result.textContent = "Error accessing webcam: " + err.message;
+            }
+        }
+
+        function captureFrame() {
+            const currentTime = Date.now();
+
+            if (currentTime - lastCaptureTime >= CAPTURE_INTERVAL &&
+                video.readyState === video.HAVE_ENOUGH_DATA) {
+
+                const canvas = document.createElement("canvas");
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const context = canvas.getContext("2d");
+
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Convert to base64
+                const base64Image = canvas.toDataURL('image/jpeg', 0.8);
+
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(base64Image);
+                }
+
+                lastCaptureTime = currentTime;
+            }
+
+            requestAnimationFrame(captureFrame);
+        }
+
+        initializeWebcam();
+    </script>
+</body>
+</html>

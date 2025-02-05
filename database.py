@@ -1,5 +1,6 @@
 import datetime
 import os
+
 import motor.motor_asyncio
 
 
@@ -15,8 +16,7 @@ class Database:
         await self.holeDB.insert_one({'lon': lon, 'lat': lat, 'time': time, 'locname': locname})
 
     async def get_hole_report(self):
-        await self.holeDB.find({}).sort('time', -1).to_list(None)
+        await self.holeDB.find({}, {'_id': 0}).sort('time', -1).to_list(None)
 
     async def add_crash_report(self, lon: float, lat: float, time: datetime.datetime, locname: str):
         await self.crashDB.insert_one({'lon': lon, 'lat': lat, 'time': time, 'locname': locname})
-
